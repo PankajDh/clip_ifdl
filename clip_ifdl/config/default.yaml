@@ -1,0 +1,32 @@
+seed: 42
+device: "cuda"
+
+data:
+  train_manifest: "data/train_manifest.jsonl"
+  val_manifest: "data/val_manifest.jsonl"
+  image_size: 512
+  num_workers: 8
+  class_balance: true
+
+model:
+  clip_model: "ViT-B-16"
+  clip_pretrained: "openai"
+  prompt_tokens: 8
+  embed_dim: 512
+  adapter_heads: 8
+  adapter_layers: [0, 3, 6, 9, 12]
+  noise_channels: 64
+  dropout: 0.0
+
+optimization:
+  batch_size: 4
+  lr: 2.0e-4
+  weight_decay: 0.01
+  max_epochs: 50
+  warmup_epochs: 2
+  grad_clip: 1.0
+  use_amp: true
+
+logging:
+  log_every: 50
+  ckpt_dir: "checkpoints"
