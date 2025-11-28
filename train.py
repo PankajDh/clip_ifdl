@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import yaml
-from torch.cuda.amp import GradScaler, autocast
+from torch import amp
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -99,19 +99,19 @@ def train(cfg: Dict[str, Any]) -> None:
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = AdamW(params, lr=cfg["optimization"]["lr"], weight_decay=cfg["optimization"]["weight_decay"])
 
-    scaler = GradScaler(enabled=cfg["optimization"].get("use_amp", False))
+    scaler = amp.GradScaler("cuda", enabled=cfg["optimization"].get("use_amp", False))
     use_amp = scaler.is_enabled()
     global_step = 0
     for epoch in range(cfg["optimization"]["max_epochs"]):
         model.train()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
         for images, labels, masks in pbar:
-            images = images.to(device)
-            labels = labels.to(device)
+            images = images.to(device, dtype=torch.float32)
+            labels = labels.to(device, dtype=torch.float32)
             if masks is not None:
-                masks = masks.to(device)
+                masks = masks.to(device, dtype=torch.float32)
 
-            with autocast(enabled=use_amp):
+            with amp.autocast("cuda", enabled=use_amp):
                 outputs = model(images, image_size=cfg["data"]["image_size"])
                 cls_loss = criterion_cls(outputs["det_logit"].view(-1), labels)
 
@@ -136,12 +136,12 @@ def train(cfg: Dict[str, Any]) -> None:
         # Simple validation
         model.eval()
         val_cls, val_loc, count = 0.0, 0.0, 0
-        with torch.no_grad(), autocast(enabled=use_amp):
+        with torch.no_grad(), amp.autocast("cuda", enabled=use_amp):
             for images, labels, masks in val_loader:
-                images = images.to(device)
-                labels = labels.to(device)
+                images = images.to(device, dtype=torch.float32)
+                labels = labels.to(device, dtype=torch.float32)
                 if masks is not None:
-                    masks = masks.to(device)
+                    masks = masks.to(device, dtype=torch.float32)
                 outputs = model(images, image_size=cfg["data"]["image_size"])
                 cls_loss = criterion_cls(outputs["det_logit"].view(-1), labels)
                 loc_loss = torch.tensor(0.0, device=device)
