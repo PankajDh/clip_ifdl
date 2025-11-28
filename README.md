@@ -30,7 +30,7 @@ The training/validation manifests are JSONL files with one entry per image:
 ## Training
 ```
 python3 train.py --config clip_ifdl/config/default.yaml      # standard
-python3 train.py --config clip_ifdl/config/low_mem.yaml      # smaller VRAM
+python3 train.py --config clip_ifdl/config/low_mem.yaml      # smaller VRAM / faster
 ```
 If you are using the Kaggle dataset `dinmkeljiame/doctamper`, first download/unzip it, then build manifests:
 ```
@@ -50,9 +50,9 @@ Key config knobs:
 - `optimization.lr` and `grad_clip`: stability controls when unfreezing only adapters/prompts.
 - `optimization.use_amp`: mixed precision on/off; keep it on for 24 GB-class GPUs (e.g., L4).
 
-### Memory notes
-- For 24 GB (e.g., L4/3090/4090): default config (512px, batch 4) with AMP should fit.
-- For ~16 GB: use `clip_ifdl/config/low_mem.yaml` (448px, batch 2) or drop to 384px if needed.
+### Memory/time notes
+- For 24 GB (e.g., L4/3090/4090): default config (512px, batch 4) with AMP should fit but may be slower.
+- For ~16–24 GB: use `clip_ifdl/config/low_mem.yaml` (384px, batch 1, 10 epochs) for faster, lower-memory runs.
 
 ## Notes on implementation choices
 - CLIP weights remain frozen to preserve priors; only prompts/adapters/decoder train.
