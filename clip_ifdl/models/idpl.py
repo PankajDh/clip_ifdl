@@ -64,10 +64,22 @@ class InstanceAwareDualPrompt(nn.Module):
     def seed_from_text_embeddings(self, real_embed: torch.Tensor, fake_embed: torch.Tensor) -> None:
         """
         Initialize prompts from CLIP token embeddings derived from text seeds.
-        Both tensors expected shape: (embed_dim,)
+        Tensors may be larger than embed_dim; we center-crop or pad to fit.
         """
-        self.real_prompt.copy_(real_embed.unsqueeze(0).repeat(self.prompt_tokens, 1))
-        self.fake_prompt.copy_(fake_embed.unsqueeze(0).repeat(self.prompt_tokens, 1))
+        target_dim = self.embed_dim
+        def _fit(vec: torch.Tensor) -> torch.Tensor:
+            if vec.shape[-1] == target_dim:
+                return vec
+            if vec.shape[-1] > target_dim:
+                return vec[..., :target_dim]
+            # pad if smaller
+            pad = target_dim - vec.shape[-1]
+            return torch.nn.functional.pad(vec, (0, pad))
+
+        real_vec = _fit(real_embed)
+        fake_vec = _fit(fake_embed)
+        self.real_prompt.copy_(real_vec.unsqueeze(0).repeat(self.prompt_tokens, 1))
+        self.fake_prompt.copy_(fake_vec.unsqueeze(0).repeat(self.prompt_tokens, 1))
 
     def _adjust(self, base_prompt: torch.Tensor, cls: torch.Tensor, image_tokens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # base_prompt: (N, D)
