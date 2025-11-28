@@ -49,7 +49,7 @@ class NoiseFeatureExtractor(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Avoid half-complex ops: disable autocast inside this block.
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast("cuda", enabled=False):
             x_fp32 = x.float()
 
             # RGB -> noise residuals

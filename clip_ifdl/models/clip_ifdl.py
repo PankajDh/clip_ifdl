@@ -63,7 +63,8 @@ class CLIPIFDL(nn.Module):
 
         self.clip = clip_model
         self.visual = clip_model.visual
-        self.width = getattr(self.visual, "width", clip_model.text_projection.shape[0])
+        # Derive width from positional embedding to match vision transformer tokens.
+        self.width = int(self.visual.positional_embedding.shape[-1])
         self.patch_size = self.visual.patch_size if isinstance(self.visual.patch_size, int) else self.visual.patch_size[0]
         self.device = device
 
