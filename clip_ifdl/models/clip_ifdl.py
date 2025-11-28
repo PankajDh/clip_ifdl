@@ -109,7 +109,12 @@ class CLIPIFDL(nn.Module):
             x.shape[0], 1, x.shape[-1], device=x.device, dtype=x.dtype
         )
         x = torch.cat([cls_token, x], dim=1)
-        x = x + self.visual.positional_embedding.to(x.dtype)
+
+        # Resize positional embedding to match token count if needed.
+        pos_embed = self.visual.positional_embedding.to(x.dtype)
+        if pos_embed.shape[1] != x.shape[1]:
+            pos_embed = self._resize_pos_embed(pos_embed, target_seq=x.shape[1])
+        x = x + pos_embed
         x = self.visual.ln_pre(x)
 
         tokens = x
@@ -133,6 +138,20 @@ class CLIPIFDL(nn.Module):
         cls = x[:, 0, :]
         tokens = x[:, 1:, :]
         return {"cls": cls, "tokens": tokens}
+
+    def _resize_pos_embed(self, pos_embed: torch.Tensor, target_seq: int) -> torch.Tensor:
+        """Interpolate 2D grid positional embedding to match new sequence length."""
+        # pos_embed: (1, 1 + Gh*Gw, D)
+        cls = pos_embed[:, :1, :]
+        tok = pos_embed[:, 1:, :]
+        old_tokens = tok.shape[1]
+        old_size = int(math.sqrt(old_tokens))
+        new_tokens = target_seq - 1
+        new_size = int(math.sqrt(new_tokens))
+        tok = tok.reshape(1, old_size, old_size, -1).permute(0, 3, 1, 2)
+        tok = F.interpolate(tok, size=(new_size, new_size), mode="bicubic", align_corners=False)
+        tok = tok.permute(0, 2, 3, 1).reshape(1, new_tokens, -1)
+        return torch.cat([cls, tok], dim=1)
 
     def forward(self, image: torch.Tensor, image_size: Optional[int] = None) -> Dict[str, torch.Tensor]:
         if image_size is None:

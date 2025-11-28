@@ -48,8 +48,11 @@ class NoiseFeatureExtractor(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Operate in float32 to avoid half-complex issues, cast back later.
+        x_fp32 = x.float()
+
         # RGB -> noise residuals
-        noise = self.bayar(x)
+        noise = self.bayar(x_fp32)
         noise_feat = self.noise_encoder(noise)
 
         # Frequency magnitude as complementary domain
@@ -70,7 +73,7 @@ class NoiseFeatureExtractor(nn.Module):
         # Reduce each patch to a single embedding via average pooling
         patch_area = self.patch_size * self.patch_size
         tokens = tokens.view(tokens.shape[0], tokens.shape[1], fused.shape[1], patch_area).mean(dim=-1)
-        return tokens
+        return tokens.to(x.dtype)
 
 
 class NoiseAdapterBlock(nn.Module):
