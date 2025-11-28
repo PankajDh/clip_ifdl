@@ -48,31 +48,29 @@ class NoiseFeatureExtractor(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Operate in float32 to avoid half-complex issues, cast back later.
-        x_fp32 = x.float()
+        # Avoid half-complex ops: disable autocast inside this block.
+        with torch.cuda.amp.autocast(enabled=False):
+            x_fp32 = x.float()
 
-        # RGB -> noise residuals
-        noise = self.bayar(x_fp32)
-        noise_feat = self.noise_encoder(noise)
+            # RGB -> noise residuals
+            noise = self.bayar(x_fp32)
+            noise_feat = self.noise_encoder(noise)
 
-        # Frequency magnitude as complementary domain
-        freq = torch.fft.rfft2(noise, norm="ortho")
-        freq_mag = torch.abs(freq)
-        # Bring frequency magnitude back to spatial grid
-        freq_mag = torch.fft.irfft2(freq_mag, s=noise.shape[-2:], norm="ortho")
-        freq_feat = self.noise_encoder(freq_mag)
+            # Frequency magnitude as complementary domain
+            freq = torch.fft.rfft2(noise, norm="ortho")
+            freq_mag = torch.abs(freq)
+            freq_mag = torch.fft.irfft2(freq_mag, s=noise.shape[-2:], norm="ortho")
+            freq_feat = self.noise_encoder(freq_mag)
 
-        fused = torch.cat([noise_feat, freq_feat], dim=1)
-        fused = self.fusion(fused)
+            fused = torch.cat([noise_feat, freq_feat], dim=1)
+            fused = self.fusion(fused)
 
-        # Patchify to align with CLIP token layout
-        if fused.shape[-1] % self.patch_size != 0 or fused.shape[-2] % self.patch_size != 0:
-            raise ValueError("Input resolution must be divisible by patch size for noise adapter.")
-        tokens = F.unfold(fused, kernel_size=self.patch_size, stride=self.patch_size)
-        tokens = tokens.transpose(1, 2)  # B, num_tokens, embed_dim * patch_size^2
-        # Reduce each patch to a single embedding via average pooling
-        patch_area = self.patch_size * self.patch_size
-        tokens = tokens.view(tokens.shape[0], tokens.shape[1], fused.shape[1], patch_area).mean(dim=-1)
+            if fused.shape[-1] % self.patch_size != 0 or fused.shape[-2] % self.patch_size != 0:
+                raise ValueError("Input resolution must be divisible by patch size for noise adapter.")
+            tokens = F.unfold(fused, kernel_size=self.patch_size, stride=self.patch_size)
+            tokens = tokens.transpose(1, 2)
+            patch_area = self.patch_size * self.patch_size
+            tokens = tokens.view(tokens.shape[0], tokens.shape[1], fused.shape[1], patch_area).mean(dim=-1)
         return tokens.to(x.dtype)
 
 

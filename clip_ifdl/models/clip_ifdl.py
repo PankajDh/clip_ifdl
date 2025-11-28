@@ -141,7 +141,10 @@ class CLIPIFDL(nn.Module):
 
     def _resize_pos_embed(self, pos_embed: torch.Tensor, target_seq: int) -> torch.Tensor:
         """Interpolate 2D grid positional embedding to match new sequence length."""
-        # pos_embed: (1, 1 + Gh*Gw, D)
+        # pos_embed: (1, 1 + Gh*Gw, D) or (1 + Gh*Gw, D)
+        if pos_embed.dim() == 2:
+            pos_embed = pos_embed.unsqueeze(0)
+        # After this: (1, 1 + Gh*Gw, D)
         cls = pos_embed[:, :1, :]
         tok = pos_embed[:, 1:, :]
         old_tokens = tok.shape[1]
