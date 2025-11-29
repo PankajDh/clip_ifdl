@@ -34,6 +34,15 @@ python3 train.py --config clip_ifdl/config/low_mem.yaml      # smaller VRAM / fa
 ```
 If you are using the Kaggle dataset `dinmkeljiame/doctamper`, first download/unzip it, then build manifests:
 ```
+# For DocTamper dataset with images/masks folders
+python3 scripts/make_doctamper_manifest.py \
+  --root /data/doctamper-dataset \
+  --train-splits "DocTamper Training,DocTamper SCD,DocTamper FCD" \
+  --val-splits "DocTamper Testing" \
+  --train-out data/train_manifest.jsonl \
+  --val-out data/val_manifest.jsonl
+
+# (Fallback generic builder if your layout differs)
 python3 scripts/make_manifest.py \
   --data-root /path/to/doctamper \
   --mask-suffix "_mask" \
@@ -42,7 +51,6 @@ python3 scripts/make_manifest.py \
   --train-out data/train_manifest.jsonl \
   --val-out data/val_manifest.jsonl
 ```
-Adjust `--mask-suffix`/`--mask-dirs` to match the dataset’s mask naming/layout. The config already points to `data/train_manifest.jsonl` and `data/val_manifest.jsonl`.
 
 Key config knobs:
 - `model.adapter_layers`: transformer layers where FENA is applied (supports 0..12 for ViT-B/16).
