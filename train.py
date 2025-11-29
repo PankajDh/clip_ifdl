@@ -102,10 +102,12 @@ def train(cfg: Dict[str, Any]) -> None:
     scaler = amp.GradScaler("cuda", enabled=cfg["optimization"].get("use_amp", False))
     use_amp = scaler.is_enabled()
     max_steps_per_epoch = cfg["optimization"].get("max_steps_per_epoch")
+    max_val_steps = cfg["optimization"].get("max_val_steps")
     global_step = 0
     for epoch in range(cfg["optimization"]["max_epochs"]):
         model.train()
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
+        total_steps = max_steps_per_epoch if max_steps_per_epoch is not None else len(train_loader)
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch}", total=total_steps)
         for step_idx, (images, labels, masks) in enumerate(pbar):
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.float32)
@@ -141,7 +143,7 @@ def train(cfg: Dict[str, Any]) -> None:
         model.eval()
         val_cls, val_loc, count = 0.0, 0.0, 0
         with torch.no_grad(), amp.autocast("cuda", enabled=use_amp):
-            for images, labels, masks in val_loader:
+            for val_idx, (images, labels, masks) in enumerate(val_loader):
                 images = images.to(device, dtype=torch.float32)
                 labels = labels.to(device, dtype=torch.float32)
                 if masks is not None:
@@ -154,6 +156,8 @@ def train(cfg: Dict[str, Any]) -> None:
                 val_cls += cls_loss.item() * images.size(0)
                 val_loc += loc_loss.item() * images.size(0)
                 count += images.size(0)
+                if max_val_steps is not None and (val_idx + 1) >= max_val_steps:
+                    break
         avg_cls = val_cls / max(count, 1)
         avg_loc = val_loc / max(count, 1)
         print(f"[val] epoch={epoch} cls={avg_cls:.4f} loc={avg_loc:.4f}")

@@ -24,6 +24,7 @@ optimization:
   weight_decay: 0.01
   max_epochs: 10
   max_steps_per_epoch: 2000
+  max_val_steps: 500
   warmup_epochs: 2
   grad_clip: 1.0
   use_amp: true
