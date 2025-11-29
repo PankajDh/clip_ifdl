@@ -6,6 +6,27 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 
 
+MASK_SUFFIXES = ["", "_mask", "-mask", "_gt", "-gt", "_label", "-label", "_seg", "-seg"]
+MASK_EXTS = [".png", ".jpg", ".jpeg", ".bmp"]
+
+
+def find_mask(masks_dir: Optional[Path], img_path: Path) -> Optional[Path]:
+    if masks_dir is None:
+        return None
+    stem = img_path.stem
+    # Try exact filename first.
+    exact = masks_dir / img_path.name
+    if exact.exists():
+        return exact
+    # Try suffix variations with common extensions.
+    for suf in MASK_SUFFIXES:
+        for ext in MASK_EXTS:
+            candidate = masks_dir / f"{stem}{suf}{ext}"
+            if candidate.exists():
+                return candidate
+    return None
+
+
 def collect_split(split_dir: Path) -> List[Tuple[Path, Optional[Path], int]]:
     """
     Collect (image, mask, label) tuples for a DocTamper split.
@@ -20,12 +41,7 @@ def collect_split(split_dir: Path) -> List[Tuple[Path, Optional[Path], int]]:
     for img_path in images_dir.rglob("*"):
         if img_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".bmp"}:
             continue
-        mask_path = None
-        if masks_dir is not None:
-            candidate = masks_dir / img_path.name
-            if candidate.exists():
-                mask_path = candidate
-
+        mask_path = find_mask(masks_dir, img_path)
         label = 0 if mask_path is not None else 1
         items.append((img_path, mask_path, label))
     return items
@@ -78,7 +94,9 @@ def main() -> None:
     write_manifest(train_entries, args.train_out)
     write_manifest(val_entries, args.val_out)
 
-    print(f"Wrote {len(train_entries)} train and {len(val_entries)} val entries.")
+    train_masks = sum(1 for _, m, _ in train_entries if m is not None)
+    val_masks = sum(1 for _, m, _ in val_entries if m is not None)
+    print(f"Wrote {len(train_entries)} train ({train_masks} with masks) and {len(val_entries)} val ({val_masks} with masks) entries.")
 
 
 if __name__ == "__main__":
