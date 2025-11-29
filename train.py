@@ -101,11 +101,12 @@ def train(cfg: Dict[str, Any]) -> None:
 
     scaler = amp.GradScaler("cuda", enabled=cfg["optimization"].get("use_amp", False))
     use_amp = scaler.is_enabled()
+    max_steps_per_epoch = cfg["optimization"].get("max_steps_per_epoch")
     global_step = 0
     for epoch in range(cfg["optimization"]["max_epochs"]):
         model.train()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
-        for images, labels, masks in pbar:
+        for step_idx, (images, labels, masks) in enumerate(pbar):
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.float32)
             if masks is not None:
@@ -132,6 +133,9 @@ def train(cfg: Dict[str, Any]) -> None:
             global_step += 1
             if global_step % cfg["logging"]["log_every"] == 0:
                 pbar.set_postfix({"loss": loss.item(), "cls": cls_loss.item(), "loc": loc_loss.item()})
+
+            if max_steps_per_epoch is not None and (step_idx + 1) >= max_steps_per_epoch:
+                break
 
         # Simple validation
         model.eval()

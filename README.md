@@ -52,7 +52,7 @@ Key config knobs:
 
 ### Memory/time notes
 - For 24 GB (e.g., L4/3090/4090): default config (512px, batch 4) with AMP should fit but may be slower.
-- For ~16–24 GB: use `clip_ifdl/config/low_mem.yaml` (384px, batch 1, 10 epochs) for faster, lower-memory runs.
+- For ~16–24 GB: use `clip_ifdl/config/low_mem.yaml` (384px, batch 1, capped to 2000 steps/epoch, 10 epochs) for faster, lower-memory runs. Adjust `optimization.max_steps_per_epoch` if you want shorter/longer epochs.
 
 ## Notes on implementation choices
 - CLIP weights remain frozen to preserve priors; only prompts/adapters/decoder train.
